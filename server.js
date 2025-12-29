@@ -25,11 +25,20 @@ io.on('connection', (socket) => {
     socket.on('join-room', (roomId) => {
         socket.join(roomId);
         console.log(`✅ ${socket.id} joined room: ${roomId}`);
+        // 🔥 NEW: Send updated user list to room
+        const clients = io.sockets.adapter.rooms.get(roomId);
+        const userCount = clients ? clients.size : 0;
+        io.to(roomId).emit('room-users', { roomId, userCount });
+
     });
 
     socket.on('leave-room', (roomId) => {
         socket.leave(roomId);
         console.log(`❌ ${socket.id} left room: ${roomId}`);
+        // 🔥 NEW: Update user count when someone leaves
+        const clients = io.sockets.adapter.rooms.get(roomId);
+        const userCount = clients ? clients.size : 0;
+        io.to(roomId).emit('room-users', { roomId, userCount });
     });
 
     // Update chat-message to send ONLY to room

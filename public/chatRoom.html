@@ -16,6 +16,7 @@
     <button onclick="joinRoom()">Join Class</button>
 
     <div id="currentRoom"></div>
+    <div id="userList"></div>
     <input id="messageInput" placeholder="Type message..." />
     <button onclick="sendMessage()">Send</button>
     <ul id="messages"></ul>
@@ -46,6 +47,12 @@
                 const li = document.createElement('li');
                 li.textContent = `${data.message}`;
                 document.getElementById('messages').appendChild(li);
+            }
+        });
+        socket.on('room-users', (data) => {
+            if (data.roomId === currentRoom) {
+                document.getElementById('userList').innerHTML =
+                    `👥 ${data.userCount} students/teachers online`;
             }
         });
     </script>
