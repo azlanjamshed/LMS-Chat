@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>LMS Chat</title>
+</head>
+
+<body>
+    <h2>🗣️ Real-time Chat Test</h2>
+    <input id="messageInput" placeholder="Type message..." />
+    <button onclick="sendMessage()">Send</button>
+    <ul id="messages"></ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('✅ Connected to server');
+        });
+
+        socket.on('chat-message', (msg) => {
+            const li = document.createElement('li');
+            li.textContent = msg;
+            document.getElementById('messages').appendChild(li);
+        });
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const msg = input.value;
+            if (msg) {
+                socket.emit('chat-message', msg);
+                input.value = '';
+            }
+        }
+    </script>
+</body>
+
+</html>
