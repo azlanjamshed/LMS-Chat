@@ -5,23 +5,36 @@
     <title>LMS Chat - Rooms</title>
 </head>
 
-<body>
-    <h2>🏫 LMS Class Chat</h2>
+<body style="font-family: Arial; max-width: 600px; margin: 50px auto;">
+    <h1>🏫 LMS Class Chat</h1>
 
-    <select id="roomSelect">
-        <option value="class_101">Class 101 (Math)</option>
-        <option value="class_102">Class 102 (Science)</option>
-        <option value="class_103">Class 103 (English)</option>
-    </select>
-    <button onclick="joinRoom()">Join Class</button>
-    <input id="usernameInput" placeholder="Your name" />
-
+    <div style="background: #f0f0f0; padding: 15px; border-radius: 10px; margin: 20px 0;">
+        <label>👤 Name: <input id="usernameInput" placeholder="Student1" style="padding: 5px;" /></label>
+        <label style="margin-left: 20px;">
+            📚 Class:
+            <select id="roomSelect" style="padding: 5px;">
+                <option value="class_101">Class 101 (Math)</option>
+                <option value="class_102">Class 102 (Science)</option>
+                <option value="class_103">Class 103 (English)</option>
+            </select>
+        </label>
+        <button onclick="joinRoom()"
+            style="padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 5px;">Join
+            Class</button>
+    </div>
 
     <div id="currentRoom"></div>
-    <div id="userList"></div>
-    <input id="messageInput" placeholder="Type message..." />
-    <button onclick="sendMessage()">Send</button>
-    <ul id="messages"></ul>
+    <div id="userList" style="color: #666;"></div>
+
+    <div style="margin: 20px 0;">
+        <input id="messageInput" placeholder="Type message..." style="width: 70%; padding: 10px;" />
+        <button onclick="sendMessage()"
+            style="width: 28%; padding: 10px; background: #28a745; color: white; border: none;">Send</button>
+    </div>
+
+    <ul id="messages"
+        style="list-style: none; padding: 0; max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
+    </ul>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -50,6 +63,7 @@
                 const li = document.createElement('li');
                 li.innerHTML = `<strong>${data.userName}:</strong> ${data.message}`;
                 document.getElementById('messages').appendChild(li);
+                li.scrollIntoView();
             }
         });
         socket.on('room-users', (data) => {
