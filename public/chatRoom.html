@@ -14,6 +14,8 @@
         <option value="class_103">Class 103 (English)</option>
     </select>
     <button onclick="joinRoom()">Join Class</button>
+    <input id="usernameInput" placeholder="Your name" />
+
 
     <div id="currentRoom"></div>
     <div id="userList"></div>
@@ -35,9 +37,10 @@
 
         function sendMessage() {
             const input = document.getElementById('messageInput');
+            const userName = document.getElementById("usernameInput").value || "Anonymus"
             const msg = input.value;
             if (msg && currentRoom) {
-                socket.emit('chat-message', { message: msg, roomId: currentRoom });
+                socket.emit('chat-message', { message: msg, roomId: currentRoom, userName });
                 input.value = '';
             }
         }
@@ -45,7 +48,7 @@
         socket.on('chat-message', (data) => {
             if (data.roomId === currentRoom) {
                 const li = document.createElement('li');
-                li.textContent = `${data.message}`;
+                li.innerHTML = `<strong>${data.userName}:</strong> ${data.message}`;
                 document.getElementById('messages').appendChild(li);
             }
         });

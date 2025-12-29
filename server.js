@@ -43,13 +43,14 @@ io.on('connection', (socket) => {
 
     // Update chat-message to send ONLY to room
     socket.on('chat-message', (data) => {
-        const { message, roomId } = data;
+        const { message, roomId, userName = "Anonymus" } = data;
         io.to(roomId).emit('chat-message', {
             message,
+            userName,
             roomId,
             timestamp: new Date()
         });
-        console.log(`📨 Room ${roomId}: ${message}`);
+        console.log(`📨 [${userName}] ${roomId}: ${message}`);
     });
 
 });
