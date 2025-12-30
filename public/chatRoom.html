@@ -7,7 +7,14 @@
 
 <body style="font-family: Arial; max-width: 600px; margin: 50px auto;">
     <h1>🏫 LMS Class Chat</h1>
-
+    <div style="background: #e7f3ff; padding: 15px; border-radius: 10px; margin: 20px 0;">
+        <h3>🔐 Login</h3>
+        <input id="loginUsername" placeholder="Username" style="padding: 5px; margin: 5px;" />
+        <input id="loginPassword" type="password" placeholder="Password" style="padding: 5px; margin: 5px;" />
+        <button onclick="login()"
+            style="padding: 5px 15px; background: #28a745; color: white; border: none;">Login</button>
+        <div id="loginStatus"></div>
+    </div>
     <div style="background: #f0f0f0; padding: 15px; border-radius: 10px; margin: 20px 0;">
         <label>👤 Name: <input id="usernameInput" placeholder="Student1" style="padding: 5px;" /></label>
         <label style="margin-left: 20px;">
@@ -37,42 +44,99 @@
     </ul>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        let authToken = null;
+        let socket = null;  // 🔥 FIXED: Don't connect yet
         let currentRoom = null;
 
+        // 🔥 FIXED: Connect ONLY after login
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                authToken = data.token;
+                document.getElementById('loginStatus').innerHTML = `✅ Logged in as ${data.username}`;
+
+                // 🔥 CONNECT Socket AFTER getting token
+                socket = io({ auth: { token: authToken } });
+                setupSocketEvents();  // 🔥 NOW setup events
+                console.log('🔗 Socket connecting with token...');
+            } else {
+                document.getElementById('loginStatus').innerHTML = `❌ ${data.error}`;
+            }
+        }
+
+        function setupSocketEvents() {
+            socket.on('connect', () => {
+                console.log('✅ Socket connected!');
+            });
+
+            socket.on('chat-message', (data) => {
+                if (data.roomId === currentRoom) {
+                    const li = document.createElement('li');
+                    li.style.margin = '5px 0';
+                    li.innerHTML = `<strong style="color: #007bff;">${data.username}:</strong> ${data.message}`;  // 🔥 FIXED: data.username
+                    document.getElementById('messages').appendChild(li);
+                    li.scrollIntoView();
+                }
+            });
+
+            socket.on('room-users', (data) => {
+                if (data.roomId === currentRoom) {
+                    document.getElementById('userList').innerHTML = `👥 ${data.userCount} students/teachers online`;
+                }
+            });
+
+            socket.on('chat-history', (messages) => {
+                const messagesList = document.getElementById('messages');
+                messagesList.innerHTML = '';
+                messages.forEach(msg => {
+                    const li = document.createElement('li');
+                    li.style.margin = '5px 0';
+                    li.innerHTML = `<strong style="color: #007bff;">${msg.username}:</strong> ${msg.message}`;  // 🔥 FIXED: msg.username
+                    messagesList.appendChild(li);
+                });
+            });
+        }
+
         function joinRoom() {
+            if (!authToken || !socket) {
+                alert('Please login first!');
+                return;
+            }
             currentRoom = document.getElementById('roomSelect').value;
             socket.emit('join-room', currentRoom);
-            document.getElementById('currentRoom').innerHTML =
-                `<h3>📚 In: ${currentRoom}</h3>`;
+            document.getElementById('currentRoom').innerHTML = `<h3>📚 In: ${currentRoom}</h3>`;
         }
 
         function sendMessage() {
+            if (!socket || !currentRoom) {
+                alert('Please login and join a room first!');
+                return;
+            }
             const input = document.getElementById('messageInput');
-            const userName = document.getElementById("usernameInput").value || "Anonymus"
+            const username = document.getElementById('usernameInput').value || 'Anonymous';  // 🔥 FIXED: consistent naming
             const msg = input.value;
             if (msg && currentRoom) {
-                socket.emit('chat-message', { message: msg, roomId: currentRoom, userName });
+                socket.emit('chat-message', {
+                    message: msg,
+                    roomId: currentRoom,
+                    username  // 🔥 FIXED: send username (not userName)
+                });
                 input.value = '';
             }
         }
-
-        socket.on('chat-message', (data) => {
-            if (data.roomId === currentRoom) {
-                const li = document.createElement('li');
-                li.innerHTML = `<strong>${data.userName}:</strong> ${data.message}`;
-                document.getElementById('messages').appendChild(li);
-                li.scrollIntoView();
-            }
-        });
-        socket.on('room-users', (data) => {
-            if (data.roomId === currentRoom) {
-                document.getElementById('userList').innerHTML =
-                    `👥 ${data.userCount} students/teachers online`;
-            }
-        });
     </script>
+
 </body>
 
 </html>

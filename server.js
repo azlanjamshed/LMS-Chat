@@ -1,65 +1,103 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const { register, login, generateToken, verifyToken } = require('./model/User.Model'); // ✅ Fixed path
+const mongoose = require('mongoose');
+const Message = require('./model/Message.Model'); // ✅ Fixed name + path
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*" }
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
 });
+
 app.use(express.static("public"));
-// 🔥 Socket.io connection handler
-// io.on('connection', (socket) => {
-//     console.log('✅ User connected:', socket.id);
+app.use(express.json());
 
-//     socket.on('chat-message', (msg) => {
-//         console.log('📨 Message:', msg);
-//         io.emit('chat-message', msg); // Send to ALL users
-//     });
+// 🔥 CONNECT MONGODB FIRST
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('✅ MongoDB connected'))
+    .catch(err => console.error('❌ MongoDB error:', err));
 
-//     socket.on('disconnect', () => {
-//         console.log('❌ User disconnected:', socket.id);
-//     });
-// });
+// 🔥 FIXED: Real JWT in login
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    const user = login(username, password);
+    if (user) {
+        const token = generateToken(user.id, user.username); // ✅ REAL JWT!
+        res.json({ success: true, token, username: user.username });
+    } else {
+        res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+});
+
+app.post('/register', (req, res) => {
+    const { username, password } = req.body;
+    const user = register(username, password);
+    res.json({ success: true, userId: user.id, username: user.username });
+});
+
+// 🔥 JWT Socket.io middleware
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error('Authentication required'));
+    const decoded = verifyToken(token);
+    if (!decoded) return next(new Error('Invalid token'));
+    socket.user = decoded;
+    console.log(`🔐 ${socket.user.username} authenticated`);
+    next();
+});
+
 io.on('connection', (socket) => {
-    socket.on('join-room', (roomId) => {
+    socket.on('join-room', async (roomId) => {
         socket.join(roomId);
         console.log(`✅ ${socket.id} joined room: ${roomId}`);
-        // 🔥 NEW: Send updated user list to room
+
+        // 🔥 Load chat history
+        const recentMessages = await Message.find({ roomId })
+            .sort({ timestamp: -1 }).limit(50)
+            .sort({ timestamp: 1 });
+        socket.emit('chat-history', recentMessages);
+
+        // User count
         const clients = io.sockets.adapter.rooms.get(roomId);
         const userCount = clients ? clients.size : 0;
         io.to(roomId).emit('room-users', { roomId, userCount });
-
     });
 
     socket.on('leave-room', (roomId) => {
         socket.leave(roomId);
         console.log(`❌ ${socket.id} left room: ${roomId}`);
-        // 🔥 NEW: Update user count when someone leaves
         const clients = io.sockets.adapter.rooms.get(roomId);
         const userCount = clients ? clients.size : 0;
         io.to(roomId).emit('room-users', { roomId, userCount });
     });
 
-    // Update chat-message to send ONLY to room
-    socket.on('chat-message', (data) => {
-        const { message, roomId, userName = "Anonymus" } = data;
-        io.to(roomId).emit('chat-message', {
-            message,
-            userName,
-            roomId,
-            timestamp: new Date()
-        });
-        console.log(`📨 [${userName}] ${roomId}: ${message}`);
-    });
+    socket.on('chat-message', async (data) => {
+        const { message, roomId } = data;
+        const username = socket.user.username; // ✅ Use authenticated user
 
+        // 🔥 FIXED: Use Message model
+        const newMessage = new Message({ roomId, username, message });
+        await newMessage.save();
+
+        io.to(roomId).emit('chat-message', {
+            message, username, roomId, timestamp: new Date()
+        });
+        console.log(`📨 [${username}] ${roomId}: ${message}`);
+    });
 });
 
 app.get('/', (req, res) => {
     res.send(`
-    <h1>🚀 LMS Chat Server + Socket.io Ready!</h1>
-    <p>Open <a href="/chatRoom.html">Chat Demo</a></p>
-  `);
+        <h1>🚀 LMS Chat Server Ready!</h1>
+        <p><a href="/chatRoom.html">Open Chat</a></p>
+    `);
 });
 
 server.listen(3000, () => {
