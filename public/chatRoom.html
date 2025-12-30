@@ -32,9 +32,16 @@
 
     <div id="currentRoom"></div>
     <div id="userList" style="color: #666;"></div>
-
+    <div id="typingIndicator" style="color: #007bff; font-style: italic; margin: 5px 0;"></div>
+    <button onclick="clearChat()"
+        style="background: #dc3545; color: white; padding: 5px 10px; border: none; border-radius: 5px; margin-left: 10px;">
+        🗑️ Clear History
+    </button>
     <div style="margin: 20px 0;">
-        <input id="messageInput" placeholder="Type message..." style="width: 70%; padding: 10px;" />
+        <!-- <input id="messageInput" placeholder="Type message..." style="width: 70%; padding: 10px;" /> -->
+        <input id="messageInput" placeholder="Type message..." style="width: 70%; padding: 10px;"
+            onkeypress="if(event.key==='Enter') sendMessage()" />
+
         <button onclick="sendMessage()"
             style="width: 28%; padding: 10px; background: #28a745; color: white; border: none;">Send</button>
     </div>
@@ -80,11 +87,18 @@
                 console.log('✅ Socket connected!');
             });
 
+
             socket.on('chat-message', (data) => {
                 if (data.roomId === currentRoom) {
                     const li = document.createElement('li');
-                    li.style.margin = '5px 0';
-                    li.innerHTML = `<strong style="color: #007bff;">${data.username}:</strong> ${data.message}`;  // 🔥 FIXED: data.username
+                    li.style.margin = '8px 0';
+                    li.innerHTML = `
+      <div style="display: flex; justify-content: space-between;">
+        <strong style="color: #007bff;">${data.username}:</strong>
+        <small style="color: #888;">${new Date(data.timestamp).toLocaleTimeString()}</small>
+      </div>
+      <span>${data.message}</span>
+    `;
                     document.getElementById('messages').appendChild(li);
                     li.scrollIntoView();
                 }
@@ -105,6 +119,17 @@
                     li.innerHTML = `<strong style="color: #007bff;">${msg.username}:</strong> ${msg.message}`;  // 🔥 FIXED: msg.username
                     messagesList.appendChild(li);
                 });
+            });
+            socket.on('user-typing', (data) => {
+                if (data.roomId === currentRoom) {
+                    typingIndicator.innerHTML = `${data.username} is typing...`;
+                }
+            });
+
+            socket.on('user-stopped-typing', (data) => {
+                if (data.roomId === currentRoom) {
+                    typingIndicator.innerHTML = '';
+                }
             });
         }
 
@@ -134,6 +159,29 @@
                 });
                 input.value = '';
             }
+        }
+        // 🔥 TYPING DETECTION
+        let typingTimer;
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        document.getElementById('messageInput').addEventListener('input', () => {
+            if (!currentRoom || !socket) return;
+
+            const username = document.getElementById('usernameInput').value || 'Anonymous';
+
+            // Send typing event
+            socket.emit('typing', { roomId: currentRoom, username });
+
+            // Clear previous timer
+            clearTimeout(typingTimer);
+
+            // Stop typing after 2 seconds of no input
+            typingTimer = setTimeout(() => {
+                socket.emit('stop-typing', { roomId: currentRoom, username });
+            }, 2000);
+        });
+        function clearChat() {
+            document.getElementById('messages').innerHTML = '';
         }
     </script>
 

@@ -91,6 +91,15 @@ io.on('connection', (socket) => {
         });
         console.log(`📨 [${username}] ${roomId}: ${message}`);
     });
+    // 🔥 TYPING INDICATORS
+    socket.on('typing', (data) => {
+        socket.to(data.roomId).emit('user-typing', { username: data.username, roomId: data.roomId });
+    });
+
+    socket.on('stop-typing', (data) => {
+        socket.to(data.roomId).emit('user-stopped-typing', { username: data.username, roomId: data.roomId });
+    });
+
 });
 
 app.get('/', (req, res) => {
