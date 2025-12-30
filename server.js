@@ -8,6 +8,8 @@ const Message = require('./model/Message.Model'); // ✅ Fixed name + path
 
 const app = express();
 const server = http.createServer(app);
+const CryptoJS = require('crypto-js');
+const ENCRYPT_KEY = 'lms-chat-secret-2025-change-this';
 const io = new Server(server, {
     cors: {
         origin: "*",
@@ -15,7 +17,16 @@ const io = new Server(server, {
         credentials: true
     }
 });
+// Encrypt function
+function encryptMessage(text) {
+    return CryptoJS.AES.encrypt(text, ENCRYPT_KEY).toString();
+}
 
+// Decrypt function  
+function decryptMessage(encrypted) {
+    const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPT_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+}
 app.use(express.static("public"));
 app.use(express.json());
 
@@ -83,11 +94,20 @@ io.on('connection', (socket) => {
         const username = socket.user.username; // ✅ Use authenticated user
 
         // 🔥 FIXED: Use Message model
-        const newMessage = new Message({ roomId, username, message });
+        const encryptedMessage = encryptMessage(message);
+        const newMessage = new Message({
+            roomId,
+            username,
+            message: encryptedMessage // Save encrypted!
+        });
         await newMessage.save();
 
+        // Send ENCRYPTED to clients (decrypt on frontend)
         io.to(roomId).emit('chat-message', {
-            message, username, roomId, timestamp: new Date()
+            message: encryptedMessage,
+            username,
+            roomId,
+            timestamp: new Date()
         });
         console.log(`📨 [${username}] ${roomId}: ${message}`);
     });

@@ -50,7 +50,8 @@
         style="list-style: none; padding: 0; max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
     </ul>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         let authToken = null;
@@ -90,14 +91,14 @@
 
             socket.on('chat-message', (data) => {
                 if (data.roomId === currentRoom) {
+                    const decryptedMessage = decryptMessage(data.message); // 🔥 DECRYPT
                     const li = document.createElement('li');
-                    li.style.margin = '8px 0';
                     li.innerHTML = `
       <div style="display: flex; justify-content: space-between;">
         <strong style="color: #007bff;">${data.username}:</strong>
         <small style="color: #888;">${new Date(data.timestamp).toLocaleTimeString()}</small>
       </div>
-      <span>${data.message}</span>
+      <span>${decryptedMessage}</span>  // 🔥 Show decrypted!
     `;
                     document.getElementById('messages').appendChild(li);
                     li.scrollIntoView();
@@ -114,9 +115,9 @@
                 const messagesList = document.getElementById('messages');
                 messagesList.innerHTML = '';
                 messages.forEach(msg => {
+                    const decryptedMessage = decryptMessage(msg.message); // 🔥 DECRYPT history
                     const li = document.createElement('li');
-                    li.style.margin = '5px 0';
-                    li.innerHTML = `<strong style="color: #007bff;">${msg.username}:</strong> ${msg.message}`;  // 🔥 FIXED: msg.username
+                    li.innerHTML = `<strong>${msg.username}:</strong> ${decryptedMessage}`;
                     messagesList.appendChild(li);
                 });
             });
@@ -180,6 +181,12 @@
                 socket.emit('stop-typing', { roomId: currentRoom, username });
             }, 2000);
         });
+
+        function decryptMessage(encrypted) {
+            const bytes = CryptoJS.AES.decrypt(encrypted, 'lms-chat-secret-2025-change-this');
+            return bytes.toString(CryptoJS.enc.Utf8);
+        }
+
         function clearChat() {
             document.getElementById('messages').innerHTML = '';
         }
